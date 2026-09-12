@@ -1893,6 +1893,21 @@ fn font_data_for_face(
         },
         #[cfg(feature = "system-fonts")]
         fontdb::Source::File(path) => shared_file_font_bytes(path).map(|data| (data, face_index)),
+        // fontdb grows variants according to which of *its* features end up
+        // unified into the dependency graph: `SharedFile` exists only with
+        // `fs` + `memmap`, and `File` only with `fs`. A dependent crate cannot
+        // see fontdb's feature flags through its own `cfg(feature = ...)`, so
+        // an exhaustive match here stops compiling as soon as any unrelated
+        // crate in the graph enables another fontdb feature — which is what
+        // happens when `krilla-svg` (via `typst-pdf`) pulls in `memmap`:
+        //
+        //   error[E0004]: non-exhaustive patterns:
+        //     `&fontdb::Source::SharedFile(_, _)` not covered
+        //
+        // Callers already treat `None` as "no byte data for this face" and
+        // fall back, so a wildcard is the behaviour-preserving way to keep
+        // this compiling across feature unification.
+        _ => None,
     }
 }
 
