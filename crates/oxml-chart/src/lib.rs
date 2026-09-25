@@ -15421,8 +15421,11 @@ mod tests {
         ] {
             assert!(manifest.contains(dependency));
         }
-        assert!(!manifest.contains("rpptx.workspace"));
-        assert!(!manifest.contains("rdocx.workspace"));
+        // The no-format-crate-dependency check for this manifest now lives in
+        // oxml-drawing::tests::no_shared_crate_depends_on_a_format_crate,
+        // which matches any line starting with rdocx or rpptx rather than
+        // only the literal substrings rpptx.workspace and rdocx.workspace
+        // this test used to check here.
     }
 
     fn first_series_xml(xml: &[u8]) -> Option<Vec<u8>> {
