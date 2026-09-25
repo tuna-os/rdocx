@@ -1,9 +1,9 @@
 # rdocx
 
-[![CI](https://github.com/tensorbee/rdocx/actions/workflows/ci.yml/badge.svg)](https://github.com/tensorbee/rdocx/actions/workflows/ci.yml)
+[![CI](https://github.com/tuna-os/rdocx/actions/workflows/ci.yml/badge.svg)](https://github.com/tuna-os/rdocx/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/rdocx.svg)](https://crates.io/crates/rdocx)
 [![docs.rs](https://docs.rs/rdocx/badge.svg)](https://docs.rs/rdocx)
-[![License: MIT/Apache-2.0](https://img.shields.io/crates/l/rdocx.svg)](https://github.com/tensorbee/rdocx/blob/main/LICENSE)
+[![License: MIT/Apache-2.0](https://img.shields.io/crates/l/rdocx.svg)](https://github.com/tuna-os/rdocx/blob/main/LICENSE)
 [![MSRV: 1.93](https://img.shields.io/badge/MSRV-1.93-blue.svg)](https://blog.rust-lang.org/2026/01/09/Rust-1.93.0.html)
 
 rdocx gives Rust applications one `Document` for the complete Word workflow.
@@ -144,11 +144,11 @@ rdocx diff before.docx after.docx
 | [rdocx-oxml](https://docs.rs/rdocx-oxml) | Typed WordprocessingML for callers that already own the lower-level model |
 | [rdocx-layout](https://docs.rs/rdocx-layout) | Word flow layout for callers that already own layout input |
 | [rdocx-html](https://docs.rs/rdocx-html) | HTML and Markdown export from parsed Word content |
-| [rdocx-cli](https://github.com/tensorbee/rdocx/blob/main/crates/rdocx-cli/README.md) | Shell automation for inspection, conversion, validation, rendering, replacement, and diffing |
-| [rdocx-py](https://github.com/tensorbee/rdocx/blob/main/crates/rdocx-py/README.md) | Python editing, DOCX save, PDF output, and page images |
-| [rdocx-wasm](https://github.com/tensorbee/rdocx/blob/main/crates/rdocx-wasm/README.md) | Browser and JavaScript round trips with PDF, HTML, and Markdown export |
+| [rdocx-cli](https://github.com/tuna-os/rdocx/blob/main/crates/rdocx-cli/README.md) | Shell automation for inspection, conversion, validation, rendering, replacement, and diffing |
+| [rdocx-py](https://github.com/tuna-os/rdocx/blob/main/crates/rdocx-py/README.md) | Python editing, DOCX save, PDF output, and page images |
+| [rdocx-wasm](https://github.com/tuna-os/rdocx/blob/main/crates/rdocx-wasm/README.md) | Browser and JavaScript round trips with PDF, HTML, and Markdown export |
 
-The [binding specification](https://github.com/tensorbee/rdocx/blob/main/docs/hld/10-bindings-spec.md#native-word-facade-stability)
+The [binding specification](https://github.com/tuna-os/rdocx/blob/main/docs/hld/10-bindings-spec.md#native-word-facade-stability)
 defines where Python, WebAssembly, and CLI intentionally expose less than
 native Rust.
 
@@ -162,7 +162,7 @@ another renderer.
 
 | Project | DOCX open, create, edit | Preservation | Native layout and render | PDF and raster | HTML and Markdown | CLI | Python | Browser and WASM |
 |---|---|---|---|---|---|---|---|---|
-| [rdocx](https://github.com/tensorbee/rdocx) | Open, create, edit, and save | Unknown safe producer XML is retained byte for byte when it is not modelled | Yes, Word flow layout with deterministic bundled fonts | PDF and page images | HTML and Markdown export | `rdocx-cli` | `rdocx-py`, with a narrower facade | Workspace `rdocx-wasm` facade, deliberately unpublished |
+| [rdocx](https://github.com/tuna-os/rdocx) | Open, create, edit, and save | Unknown safe producer XML is retained byte for byte when it is not modelled | Yes, Word flow layout with deterministic bundled fonts | PDF and page images | HTML and Markdown export | `rdocx-cli` | `rdocx-py`, with a narrower facade | Workspace `rdocx-wasm` facade, deliberately unpublished |
 | [python-docx](https://python-docx.readthedocs.io/en/stable/user/documents.html) | Create, open, change, and save | Existing content that its API cannot manipulate is left alone on load and save. No byte-exact guarantee is stated | ND | ND | ND | ND | Primary API | ND |
 | [docx-rs](https://github.com/bokuweb/docx-rs) | Create and parse into the model used by its writer. Editing a parsed document is not separately documented | ND. The project states that its OOXML support is not exhaustive | ND | ND | ND | ND | ND | Document generation and DOCX-to-JSON parsing through WebAssembly |
 | [docx4j](https://github.com/plutext/docx4j) | Open, create, edit, and save | ND for unknown XML or byte-exact round trips | No project-owned page engine is documented. PDF paths use XSL-FO with Apache FOP, Microsoft Word through documents4j, or Microsoft Graph | PDF through the documented conversion paths. Raster output is ND | HTML export and first-party Markdown import and export | ND | ND | ND |
@@ -183,13 +183,13 @@ and [Aspose load behavior](https://docs.aspose.com/words/python-net/supported-fe
 rdocx preserves safe unmodeled XML, but it does not execute VBA, ActiveX, OLE,
 add-ins, or embedded applications. Binary DOC and Word 2003 XML are permanent
 non-goals. Exact authoring, reading, rendering, and preservation coverage lives
-in the [modern DOCX capability matrix](https://github.com/tensorbee/rdocx/blob/main/docs/hld/02-scope-and-non-goals.md#modern-docx-capability-matrix).
+in the [modern DOCX capability matrix](https://github.com/tuna-os/rdocx/blob/main/docs/hld/02-scope-and-non-goals.md#modern-docx-capability-matrix).
 
 ## License
 
 Licensed under either of:
 
-- MIT license ([LICENSE](https://github.com/tensorbee/rdocx/blob/main/LICENSE) or <https://opensource.org/licenses/MIT>)
+- MIT license ([LICENSE](https://github.com/tuna-os/rdocx/blob/main/LICENSE) or <https://opensource.org/licenses/MIT>)
 - Apache License, Version 2.0 (<https://www.apache.org/licenses/LICENSE-2.0>)
 
 at your option.
