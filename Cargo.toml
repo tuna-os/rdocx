@@ -36,8 +36,8 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.93"
 authors = ["Atul Sharma"]
-repository = "https://github.com/tensorbee/rdocx"
-homepage = "https://github.com/tensorbee/rdocx"
+repository = "https://github.com/tuna-os/rdocx"
+homepage = "https://github.com/tuna-os/rdocx"
 keywords = ["docx", "word", "pdf", "ooxml", "document"]
 categories = ["parser-implementations", "text-processing"]
 
