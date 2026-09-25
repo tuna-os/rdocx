@@ -54,9 +54,19 @@ mod tests {
     /// the two publication trains mutually dependent, so neither could publish
     /// first once both carried breaking changes. The adapter now lives in
     /// `rdocx-oxml` and the rule has no exception, which this test keeps true.
+    ///
+    /// `oxml-chart` is in this list because it is consumed by both
+    /// `rdocx-layout` and `rpptx-layout`, which makes it the shared crate
+    /// most likely to be handed a format-specific dependency by mistake. It
+    /// previously had its own narrower check
+    /// (`oxml_chart_is_an_explicit_publication_candidate` in
+    /// `oxml-chart/src/lib.rs`) that matched only the literal substrings
+    /// `rpptx.workspace` and `rdocx.workspace`, so a dependency added by
+    /// crate name instead, such as `rdocx-oxml.workspace = true` or a path
+    /// dependency, would have passed it silently.
     #[test]
     fn no_shared_crate_depends_on_a_format_crate() {
-        let manifests: [(&str, &str); 9] = [
+        let manifests: [(&str, &str); 10] = [
             ("oxml-core", include_str!("../../oxml-core/Cargo.toml")),
             ("oxml-opc", include_str!("../../oxml-opc/Cargo.toml")),
             ("oxml-media", include_str!("../../oxml-media/Cargo.toml")),
@@ -72,6 +82,7 @@ mod tests {
                 "oxml-py-support",
                 include_str!("../../oxml-py-support/Cargo.toml"),
             ),
+            ("oxml-chart", include_str!("../../oxml-chart/Cargo.toml")),
         ];
 
         for (crate_name, manifest) in manifests {
