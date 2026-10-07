@@ -46,12 +46,12 @@ cargo fmt --all -- --check
 
 rdocx uses sprint-driven development with tracked artifacts:
 
-- `docs/sprints/CURRENT_SPRINT.md` — active sprint tracker
-- `.claude/plans/` — design plans for features
-- `.claude/reviews/` — design reviews
-- `BACKLOG.md` — prioritized work queue
-- `SPRINT_PLAN.md` — sprint scope
-- `AS_BUILT.md` — delivered features record
+- `docs/sprints/CURRENT_SPRINT.md` - active sprint tracker
+- `.claude/plans/` - design plans for features
+- `.claude/reviews/` - design reviews
+- `BACKLOG.md` - prioritized work queue
+- `SPRINT_PLAN.md` - sprint scope
+- `AS_BUILT.md` - delivered features record
 
 If you're picking up a feature in progress, check `.claude/scratch/F-XXX-progress.md` for context.
 
@@ -61,18 +61,18 @@ If you're picking up a feature in progress, check `.claude/scratch/F-XXX-progres
 
 1. **Hash harness gates every PR.** Output deltas must be explained and reviewed. Behavioural changes must be in their own labelled commit stating the expected delta.
 
-2. **Rendering baselines use deterministic font mode.** Never record a baseline against system fonts — results must be reproducible without local font installation.
+2. **Rendering baselines use deterministic font mode.** Never record a baseline against system fonts - results must be reproducible without local font installation.
 
 3. **Crate dependency rules:**
    - `oxml-*` crates must NOT depend on `rdocx-*` or `rpptx-*` (except: `oxml-drawing → rdocx-oxml` for `Theme` adapter)
-   - Preserve this separation — it enables reuse of XML layers
+   - Preserve this separation - it enables reuse of XML layers
 
 4. **Preserve unmodelled XML verbatim.** Parse only what you render. This ensures round-trip fidelity for producer content.
 
 5. **Respect schema child order.** OOXML uses `xsd:sequence`. Violating order makes PowerPoint reject the file, not warn.
 
 6. **Markdown style:**
-   - Do not use em dashes (`—`) in tracked Markdown or commit messages
+   - Do not use em dashes (`-`) in tracked Markdown or commit messages
    - Do not use prose semicolons
    - Keep prose clear and concise
 
@@ -84,7 +84,7 @@ If you're picking up a feature in progress, check `.claude/scratch/F-XXX-progres
 ## Commit Message Format
 
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, etc.
-- State behavioural changes in the message — especially render output deltas
+- State behavioural changes in the message - especially render output deltas
 - Reference feature IDs (e.g., `F-123`) when applicable
 - Sign commits with DCO: `git commit -s`
 
@@ -143,7 +143,7 @@ When adding features, include doc comments on public APIs and examples in README
    - Testing done
    - Related issues or feature IDs
 
-4. **Keep PRs focused** — one feature or fix per PR
+4. **Keep PRs focused** - one feature or fix per PR
 
 5. **All tests must pass** before merge:
    ```bash
