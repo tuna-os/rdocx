@@ -1,7 +1,8 @@
-use std::fmt;
 use oxml_core::OxmlError;
 use oxml_drawing::shape_props::ShapePropertiesError;
 use oxml_drawing::text::TextError;
+
+use std::fmt;
 
 /// Errors produced while reading or writing the implemented ChartML core.
 #[derive(Debug)]

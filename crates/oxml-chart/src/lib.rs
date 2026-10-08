@@ -43,7 +43,6 @@ const PLOT_MARGIN_TOP: f64 = 12.0;
 const PLOT_MARGIN_BOTTOM: f64 = 28.0;
 
 /// Errors produced while reading or writing the implemented ChartML core.
-#[derive(Debug)]
 pub mod error;
 
 pub use error::{ChartError, Result};
