@@ -32,6 +32,7 @@ mod error;
 mod field;
 mod flat_opc;
 mod converters;
+mod id_alloc;
 use converters::html;
 mod math;
 mod odt;
