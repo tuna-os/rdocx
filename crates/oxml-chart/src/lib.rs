@@ -15,8 +15,8 @@ use oxml_drawing::color::{
 use oxml_drawing::fill::{Fill, SolidFill};
 use oxml_drawing::line::CT_LineProperties;
 use oxml_drawing::order::OrderedRawChildren;
-use oxml_drawing::shape_props::{CT_ShapeProperties, ShapePropertiesError};
-use oxml_drawing::text::{CT_TextBody, CT_TextCharacterProperties, TextError};
+use oxml_drawing::shape_props::CT_ShapeProperties;
+use oxml_drawing::text::{CT_TextBody, CT_TextCharacterProperties};
 use oxml_drawing::theme::CT_OfficeStyleSheet;
 use oxml_layout::{
     Color, FillRule, FontManager, GlyphRun, GroupElement, Paint, Path, PathCommand, PathElement,
@@ -43,7 +43,6 @@ const PLOT_MARGIN_TOP: f64 = 12.0;
 const PLOT_MARGIN_BOTTOM: f64 = 28.0;
 
 /// Errors produced while reading or writing the implemented ChartML core.
-#[derive(Debug)]
 pub mod error;
 
 pub use error::{ChartError, Result};

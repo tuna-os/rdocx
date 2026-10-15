@@ -49,9 +49,8 @@ use crate::content_control::ContentControlRef;
 use crate::error::{Error, Result};
 use crate::id_alloc::{
     ensure_numeric_relationship_capacity, identifier_xml_is_well_formed,
-    intersect_relationship_registry, part_name_identity, relationship_owner_identity,
-    reserve_i32, reserve_lowest_i32, reserve_part_from_set, reserve_relationship_from_cursor,
-    reserve_u32,
+    intersect_relationship_registry, part_name_identity, relationship_owner_identity, reserve_i32,
+    reserve_lowest_i32, reserve_part_from_set, reserve_relationship_from_cursor, reserve_u32,
 };
 use crate::paragraph::{Paragraph, ParagraphRef};
 use crate::revision::RevisionRef;
@@ -2387,7 +2386,6 @@ impl DocumentIdentifiers {
             .collect();
     }
 }
-
 
 fn hdr_ftr_type_order(value: HdrFtrType) -> u8 {
     match value {
