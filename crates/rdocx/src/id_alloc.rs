@@ -7,7 +7,6 @@ use quick_xml::events::Event;
 use quick_xml::reader::NsReader;
 
 use crate::error::{Error, Result};
-use oxml_media;
 
 pub(crate) fn intersect_relationship_registry(
     source: &HashMap<String, HashSet<String>>,
