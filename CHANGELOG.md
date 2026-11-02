@@ -1,5 +1,21 @@
 # Changelog
 
+## Downstream parser security repair
+
+The GTK Office Suite repair for [#1696](https://github.com/tuna-os/gtk-office-suite/pull/1696)
+retains the published rdocx 0.16.2 Rust source and raises only its
+pulldown-cmark dependency constraint from `=0.13.4` to `0.13.6`, the patched
+minimum for [RUSTSEC-2026-0433](https://rustsec.org/advisories/RUSTSEC-2026-0433.html).
+The crate manifest uses the published normalized registry dependencies so a
+git consumer does not also replace the shared OOXML family with git packages.
+
+The source base is `57f4d7438483e109cb8e45097f3498fe1c223b23`, recorded by the
+published archive, whose SHA-256 is
+`5bfe2eb1107ef1293cde0824ec8dde8fc60cacfd40a7281c712e76dbaf8a479d`.
+All Rust source files compare identically with that archive. This is a
+downstream compatibility patch, not an upstream release or certification.
+Security and compatibility execution is pending consumer integration.
+
 ## v0.16.2
 
 ### Highlights
