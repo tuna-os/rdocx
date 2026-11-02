@@ -6,15 +6,18 @@ The GTK Office Suite repair for [#1696](https://github.com/tuna-os/gtk-office-su
 retains the published rdocx 0.16.2 Rust source and raises only its
 pulldown-cmark dependency constraint from `=0.13.4` to `0.13.6`, the patched
 minimum for [RUSTSEC-2026-0433](https://rustsec.org/advisories/RUSTSEC-2026-0433.html).
-The crate manifest uses the published normalized registry dependencies so a
-git consumer does not also replace the shared OOXML family with git packages.
+The original monorepo manifest and shared path dependency structure are
+retained. Consumers must use one git source for the complete shared family.
 
 The source base is `57f4d7438483e109cb8e45097f3498fe1c223b23`, recorded by the
 published archive, whose SHA-256 is
 `5bfe2eb1107ef1293cde0824ec8dde8fc60cacfd40a7281c712e76dbaf8a479d`.
-All Rust source files compare identically with that archive. This is a
-downstream compatibility patch, not an upstream release or certification.
-Security and compatibility execution is pending consumer integration.
+All Rust source files in rdocx, rdocx-html, rdocx-layout and rdocx-oxml 0.16.2,
+and oxml-chart, oxml-core, oxml-drawing, oxml-layout, oxml-media, oxml-opc,
+oxml-pdf and oxml-sml 0.14.2 compare identically with their published archives.
+This is a downstream compatibility patch, not an upstream release or
+certification. Security and compatibility execution is pending consumer
+integration.
 
 ## v0.16.2
 
