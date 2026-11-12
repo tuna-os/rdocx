@@ -12,14 +12,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions: {}
+
 jobs:
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5.1.0
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.3 # zizmor: ignore[cache-poisoning] the release build keeps its Rust cache; dropping or freezing it changes the workflow
 
       - name: Verify output stability
         run: python3 scripts/hash_harness.py --check
@@ -34,7 +40,7 @@ jobs:
           RDOCX_VERIFY_PUBLISHED_SHARED: "1"
 
       - name: Verify reviewed release notes
-        run: python3 scripts/sprint_workflow.py release-notes "${{ github.ref_name }}" --check
+        run: python3 scripts/sprint_workflow.py release-notes "${GITHUB_REF_NAME}" --check
 
       - name: Verify publication archives
         run: |
@@ -64,6 +70,7 @@ jobs:
 
       - name: Publish stable allowlist
         if: startsWith(github.ref_name, 'v')
+        # zizmor: ignore[use-trusted-publishing] crates.io trusted publishing needs registry-side setup; the token stays until then
         run: |
           cargo publish -p rdocx-opc
           sleep 60
@@ -81,6 +88,7 @@ jobs:
 
       - name: Publish incubating allowlist
         if: startsWith(github.ref_name, 'rpptx-v')
+        # zizmor: ignore[use-trusted-publishing] crates.io trusted publishing needs registry-side setup; the token stays until then
         run: |
           cargo publish -p oxml-core
           sleep 60
@@ -119,12 +127,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5.1.0
+        with:
+          persist-credentials: false
       - name: Create GitHub Release from reviewed notes
         run: |
-          python3 scripts/sprint_workflow.py release-notes "${{ github.ref_name }}" --check
-          python3 scripts/sprint_workflow.py release-notes "${{ github.ref_name }}" --render > "$RUNNER_TEMP/release-notes.md"
-          python3 scripts/sprint_workflow.py release-notes "${{ github.ref_name }}" --render | cmp - "$RUNNER_TEMP/release-notes.md"
-          gh release create "${{ github.ref_name }}" --notes-file "$RUNNER_TEMP/release-notes.md"
+          python3 scripts/sprint_workflow.py release-notes "${GITHUB_REF_NAME}" --check
+          python3 scripts/sprint_workflow.py release-notes "${GITHUB_REF_NAME}" --render > "$RUNNER_TEMP/release-notes.md"
+          python3 scripts/sprint_workflow.py release-notes "${GITHUB_REF_NAME}" --render | cmp - "$RUNNER_TEMP/release-notes.md"
+          gh release create "${GITHUB_REF_NAME}" --notes-file "$RUNNER_TEMP/release-notes.md"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
