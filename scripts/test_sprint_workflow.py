@@ -97,7 +97,47 @@ class SprintWorkflowTests(unittest.TestCase):
             return "id:" + header.removeprefix("- id: ")
         return f"step:{position}"
 
-    def yaml_step_actions(self, step: str) -> tuple[str, ...]:
+    def locked_actions(self) -> dict[str, dict[str, str]]:
+        """Map each workflow in actions.lock to its locked refs and commits.
+
+        Keys are lower-case `owner/repo[/path]@ref`, as gh actions-lock writes
+        them. A ref resolves only through the workflow that lists it.
+        """
+        lock = (workflow.REPO / ".github/workflows/actions.lock").read_text(
+            encoding="utf-8"
+        )
+        listed: dict[str, list[str]] = {}
+        commits: dict[str, str] = {}
+        section = current = None
+        for line in lock.splitlines():
+            if line and not line.startswith(" "):
+                section = line
+            elif section == "workflows:":
+                if match := re.fullmatch(r"    '(.+)':", line):
+                    current = match.group(1)
+                    listed[current] = []
+                elif match := re.fullmatch(r"        - '(.+)'", line):
+                    listed[current].append(match.group(1))
+            elif section == "dependencies:":
+                if match := re.fullmatch(r"    '(.+)':", line):
+                    current = match.group(1)
+                elif match := re.fullmatch(r"        commit: 'sha1-([0-9a-f]{40})'", line):
+                    commits[current] = match.group(1)
+        return {
+            path: {ref: commits[ref] for ref in refs}
+            for path, refs in listed.items()
+        }
+
+    def yaml_step_actions(
+        self, step: str, workflow_file: str = ".github/workflows/ci.yml"
+    ) -> tuple[str, ...]:
+        """Return each `uses:` of the step as `action@commit`.
+
+        A tag or branch ref passes only when actions.lock lists it for
+        `workflow_file`; it is replaced by its locked commit. Any other ref is
+        returned as written, so it cannot match an expected commit.
+        """
+        locked = self.locked_actions().get(workflow_file, {})
         actions = []
         for line in step.splitlines():
             indentation = len(line) - len(line.lstrip())
@@ -108,8 +148,31 @@ class SprintWorkflowTests(unittest.TestCase):
                 value = stripped.removeprefix("uses: ")
             else:
                 continue
-            actions.append(value.split(" #", 1)[0].rstrip())
+            value = value.split(" #", 1)[0].rstrip()
+            name, _, ref = value.partition("@")
+            commit = locked.get(value.lower())
+            if commit and not re.fullmatch(r"[0-9a-f]{40}", ref):
+                value = f"{name}@{commit}"
+            actions.append(value)
         return tuple(actions)
+
+    def yaml_locked_direct_lines(
+        self, step: str, workflow_file: str = ".github/workflows/ci.yml"
+    ) -> tuple[str, ...]:
+        """Return the step's keys, with its `uses:` resolved like yaml_step_actions."""
+        (action,) = self.yaml_step_actions(step, workflow_file)
+        return tuple(
+            f"uses: {action}" if line.startswith("uses: ") else line
+            for line in self.yaml_direct_lines(step, 8)
+        )
+
+    def assert_checkout_drops_credentials(self, step: str) -> None:
+        """A checkout step's only input is `persist-credentials: false`."""
+        self.assertEqual(self.yaml_direct_lines(step, 8), ("with:",))
+        self.assertEqual(
+            self.yaml_direct_lines(self.yaml_block(step, "        with:"), 10),
+            ("persist-credentials: false",),
+        )
 
     def yaml_run_lines(self, step: str) -> tuple[str, ...]:
         run = self.yaml_block(step, "        run: |")
@@ -673,7 +736,7 @@ class SprintWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(
             self.yaml_step_actions(steps[1]),
-            ("dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c",),
+            ("dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec",),
         )
         self.assertIn("toolchain: 1.97.1", self.operative_lines(steps[1]))
         self.assertEqual(
@@ -797,7 +860,7 @@ class SprintWorkflowTests(unittest.TestCase):
             self.assertEqual(len(setup_steps), 1, job_name)
             setup = setup_steps[0]
             self.assertEqual(
-                self.yaml_direct_lines(setup, 8),
+                self.yaml_locked_direct_lines(setup),
                 (f"uses: {setup_action}", "with:"),
             )
             setup_with = self.yaml_block(setup, "        with:")
@@ -904,7 +967,7 @@ class SprintWorkflowTests(unittest.TestCase):
             ),
             (
                 steps[1],
-                "dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c",
+                "dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec",
             ),
             (
                 steps[2],
@@ -913,7 +976,10 @@ class SprintWorkflowTests(unittest.TestCase):
         )
         for action_step, expected_action in action_contract:
             self.assertEqual(self.yaml_step_actions(action_step), (expected_action,))
-            self.assertEqual(self.yaml_direct_lines(action_step, 8), ())
+            if expected_action.startswith("actions/checkout@"):
+                self.assert_checkout_drops_credentials(action_step)
+            else:
+                self.assertEqual(self.yaml_direct_lines(action_step, 8), ())
 
         setup = self.yaml_step(job, "Set up Python 3.12")
         self.assertEqual(
@@ -921,7 +987,7 @@ class SprintWorkflowTests(unittest.TestCase):
             ("actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405",),
         )
         self.assertEqual(
-            self.yaml_direct_lines(setup, 8),
+            self.yaml_locked_direct_lines(setup),
             (
                 "uses: actions/setup-python@"
                 "a309ff8b426b58ec0e2a45f0f869d46889d02405",
@@ -1747,8 +1813,7 @@ class SprintWorkflowTests(unittest.TestCase):
                     f"{job_name}-wrong-action": ci.replace(
                         job,
                         job.replace(
-                            "astral-sh/setup-uv@"
-                            "20cfd1bf945f4377ade1205e4dbc17946fc9a30d",
+                            "astral-sh/setup-uv@v10.0.1",
                             "astral-sh/setup-uv@main",
                             1,
                         ),
@@ -2068,63 +2133,50 @@ class SprintWorkflowTests(unittest.TestCase):
                 '"$binding_python" -m pytest "crates/${{ matrix.package.crate }}/tests" || true',
                 1,
             ),
-            "wrong-checkout-sha": mutate_job(
-                "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
-                "0000000000000000000000000000000000000000",
+            "unlocked-checkout-ref": mutate_job(
+                "actions/checkout@v6.0.2",
+                "actions/checkout@v6.0.1",
             ),
-            "wrong-checkout-sha-with-required-comment": mutate_job(
-                "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2",
-                "actions/checkout@0000000000000000000000000000000000000000 "
-                "# v6.0.2 de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+            "unlocked-checkout-ref-with-required-comment": mutate_job(
+                "actions/checkout@v6.0.2",
+                "actions/checkout@v6.0.1 # v6.0.2",
             ),
             "checkout-ref-input": mutate_job(
-                "      - uses: actions/checkout@"
-                "de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n",
-                "      - uses: actions/checkout@"
-                "de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n"
-                "        with:\n"
+                "          persist-credentials: false\n",
+                "          persist-credentials: false\n"
                 "          ref: main\n",
             ),
-            "wrong-rust-toolchain-sha": ci.replace(
-                "4360b52568e2003a75bf9bc1d59f33a8e3fc893c",
-                "0000000000000000000000000000000000000000",
-                1,
+            "checkout-keeps-credentials": mutate_job(
+                "          persist-credentials: false\n",
+                "          persist-credentials: true\n",
             ),
-            "rust-toolchain-input": ci.replace(
-                "      - uses: dtolnay/rust-toolchain@"
-                "4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable\n",
-                "      - uses: dtolnay/rust-toolchain@"
-                "4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable\n"
+            "unlocked-rust-toolchain-ref": mutate_job(
+                "dtolnay/rust-toolchain@stable",
+                "dtolnay/rust-toolchain@nightly",
+            ),
+            "rust-toolchain-input": mutate_job(
+                "      - uses: dtolnay/rust-toolchain@stable\n",
+                "      - uses: dtolnay/rust-toolchain@stable\n"
                 "        with:\n"
                 "          toolchain: nightly\n",
-                1,
             ),
-            "wrong-rust-cache-sha": ci.replace(
-                "c19371144df3bb44fab255c43d04cbc2ab54d1c4",
-                "0000000000000000000000000000000000000000",
-                1,
+            "unlocked-rust-cache-ref": mutate_job(
+                "Swatinem/rust-cache@v2.9.1",
+                "Swatinem/rust-cache@v2.9.0",
             ),
-            "rust-cache-input": ci.replace(
-                "      - uses: Swatinem/rust-cache@"
-                "c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1\n",
-                "      - uses: Swatinem/rust-cache@"
-                "c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1\n"
+            "rust-cache-input": mutate_job(
+                "      - uses: Swatinem/rust-cache@v2.9.1\n",
+                "      - uses: Swatinem/rust-cache@v2.9.1\n"
                 "        with:\n"
                 "          workspaces: crates/rdocx-py\n",
-                1,
             ),
-            "wrong-setup-python-sha": ci.replace(
-                "a309ff8b426b58ec0e2a45f0f869d46889d02405",
-                "0000000000000000000000000000000000000000",
-                1,
+            "unlocked-setup-python-ref": mutate_job(
+                "actions/setup-python@v6.2.0",
+                "actions/setup-python@v6.1.0",
             ),
-            "wrong-setup-python-sha-with-required-comment": ci.replace(
-                "actions/setup-python@"
-                "a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0",
-                "actions/setup-python@"
-                "0000000000000000000000000000000000000000 "
-                "# v6.2.0 a309ff8b426b58ec0e2a45f0f869d46889d02405",
-                1,
+            "unlocked-setup-python-ref-with-required-comment": mutate_job(
+                "actions/setup-python@v6.2.0",
+                "actions/setup-python@v6.1.0 # v6.2.0",
             ),
             "setup-python-extra-input": ci.replace(
                 '          python-version: "3.12.9"\n',
@@ -2209,7 +2261,7 @@ class SprintWorkflowTests(unittest.TestCase):
             ),
             (
                 steps[1],
-                "dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c",
+                "dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec",
             ),
             (
                 steps[2],
@@ -2224,7 +2276,7 @@ class SprintWorkflowTests(unittest.TestCase):
             self.yaml_direct_lines(rust_inputs, 10),
             ("targets: wasm32-unknown-unknown",),
         )
-        self.assertEqual(self.yaml_direct_lines(steps[0], 8), ())
+        self.assert_checkout_drops_credentials(steps[0])
         self.assertEqual(self.yaml_direct_lines(steps[2], 8), ())
 
         node = self.yaml_step(job, "Set up Node 24.11.1")
@@ -2236,7 +2288,7 @@ class SprintWorkflowTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            self.yaml_direct_lines(node, 8),
+            self.yaml_locked_direct_lines(node),
             (
                 "uses: actions/setup-node@"
                 "249970729cb0ef3589644e2896645e5dc5ba9c38",
@@ -2429,10 +2481,14 @@ class SprintWorkflowTests(unittest.TestCase):
         reviewed_sha = "249970729cb0ef3589644e2896645e5dc5ba9c38"
         reviewed_tag = "v6.5.0"
         job = self.yaml_block(ci, "  wasm:")
-        provenance_line = (
-            f"        uses: actions/setup-node@{reviewed_sha} # {reviewed_tag}"
-        )
+        provenance_line = f"        uses: actions/setup-node@{reviewed_tag}"
         self.assertEqual(job.count(provenance_line), 1)
+        self.assertEqual(
+            self.locked_actions()[".github/workflows/ci.yml"][
+                f"actions/setup-node@{reviewed_tag}"
+            ],
+            reviewed_sha,
+        )
         self.assertIn(f"setup-node {reviewed_tag}", testing_hld)
         self.assertNotIn("setup-node v6.1.0", testing_hld)
 
@@ -2446,10 +2502,10 @@ class SprintWorkflowTests(unittest.TestCase):
         self.assert_wasm_setup_node_provenance_contract(ci, testing_hld)
 
         mutations = {
-            "stale-workflow-comment": (
+            "stale-workflow-tag": (
                 ci.replace(
-                    "249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0",
-                    "249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.1.0",
+                    "actions/setup-node@v6.5.0",
+                    "actions/setup-node@v6.1.0",
                     1,
                 ),
                 testing_hld,
@@ -2498,21 +2554,25 @@ class SprintWorkflowTests(unittest.TestCase):
             "job-condition": mutate_job(
                 "    name: WASM\n", "    name: WASM\n    if: true\n"
             ),
-            "wrong-checkout-sha": mutate_job(
-                "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
-                "0000000000000000000000000000000000000000",
+            "unlocked-checkout-ref": mutate_job(
+                "actions/checkout@v6.0.2",
+                "actions/checkout@v6.0.1",
             ),
-            "wrong-rust-toolchain-sha": mutate_job(
-                "4360b52568e2003a75bf9bc1d59f33a8e3fc893c",
-                "0000000000000000000000000000000000000000",
+            "checkout-keeps-credentials": mutate_job(
+                "          persist-credentials: false\n",
+                "          persist-credentials: true\n",
             ),
-            "wrong-rust-cache-sha": mutate_job(
-                "c19371144df3bb44fab255c43d04cbc2ab54d1c4",
-                "0000000000000000000000000000000000000000",
+            "unlocked-rust-toolchain-ref": mutate_job(
+                "dtolnay/rust-toolchain@stable",
+                "dtolnay/rust-toolchain@nightly",
             ),
-            "wrong-setup-node-sha": mutate_job(
-                "249970729cb0ef3589644e2896645e5dc5ba9c38",
-                "0000000000000000000000000000000000000000",
+            "unlocked-rust-cache-ref": mutate_job(
+                "Swatinem/rust-cache@v2.9.1",
+                "Swatinem/rust-cache@v2.9.0",
+            ),
+            "unlocked-setup-node-ref": mutate_job(
+                "actions/setup-node@v6.5.0",
+                "actions/setup-node@v6.1.0",
             ),
             "wrong-node-version": mutate_job("24.11.1", "24"),
             "unlocked-wasm-pack-install": mutate_job(
@@ -3178,16 +3238,13 @@ class SprintWorkflowTests(unittest.TestCase):
                 "PY",
             ),
         )
-        publication_uses = tuple(
-            line.removeprefix("uses: ").split(" #", 1)[0]
-            for line in self.yaml_direct_lines(publication_action, 8)
-            if line.startswith("uses:")
-        )
         self.assertEqual(
-            publication_uses,
+            self.yaml_step_actions(
+                publication_action, ".github/workflows/wheels.yml"
+            ),
             (
                 "pypa/gh-action-pypi-publish@"
-                "cef221092ed1bacb1cc03d23a2d87d1d172e277b",
+                "7245906fb61fa33a13554f9d5fb856fe61758086",
             ),
         )
         publication_inputs = self.yaml_block(publication_action, "        with:")
@@ -3213,7 +3270,9 @@ class SprintWorkflowTests(unittest.TestCase):
         ):
             for position, step in enumerate(self.yaml_steps(job), start=1):
                 identity = self.yaml_step_identity(step, position)
-                for action in self.yaml_step_actions(step):
+                for action in self.yaml_step_actions(
+                    step, ".github/workflows/wheels.yml"
+                ):
                     action_uses.append((job_name, identity, action))
         self.assertEqual(
             tuple(action_uses),
@@ -3280,7 +3339,7 @@ class SprintWorkflowTests(unittest.TestCase):
                     "publish",
                     "Publish to PyPI with trusted publishing",
                     "pypa/gh-action-pypi-publish@"
-                    "cef221092ed1bacb1cc03d23a2d87d1d172e277b",
+                    "7245906fb61fa33a13554f9d5fb856fe61758086",
                 ),
             ),
         )
@@ -4436,7 +4495,7 @@ class SprintWorkflowTests(unittest.TestCase):
         prepublish = self.yaml_step(publish_job, "Verify reviewed release notes")
         validation_command = (
             "run: python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --check'
+            '"${GITHUB_REF_NAME}" --check'
         )
         self.assertEqual(
             self.yaml_direct_lines(prepublish, 8),
@@ -4473,19 +4532,19 @@ class SprintWorkflowTests(unittest.TestCase):
         )
         commands = (
             "python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --check',
+            '"${GITHUB_REF_NAME}" --check',
             "python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --render > '
+            '"${GITHUB_REF_NAME}" --render > '
             '"$RUNNER_TEMP/release-notes.md"',
             "python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --render | cmp - '
+            '"${GITHUB_REF_NAME}" --render | cmp - '
             '"$RUNNER_TEMP/release-notes.md"',
-            'gh release create "${{ github.ref_name }}" --notes-file '
+            'gh release create "${GITHUB_REF_NAME}" --notes-file '
             '"$RUNNER_TEMP/release-notes.md"',
         )
         self.assertEqual(self.yaml_run_lines(create), commands)
         self.assertEqual(create.count("python3 scripts/sprint_workflow.py"), 3)
-        self.assertEqual(create.count('"${{ github.ref_name }}" --check'), 1)
+        self.assertEqual(create.count('"${GITHUB_REF_NAME}" --check'), 1)
         self.assertEqual(create.count("--render"), 2)
         self.assertEqual(create.count("cmp -"), 1)
         self.assertEqual(create.count("--notes-file"), 1)
@@ -7092,16 +7151,16 @@ Pedro Assumpcao and the rdocx maintainers.
         )
         render_line = (
             "          python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --render > '
+            '"${GITHUB_REF_NAME}" --render > '
             '"$RUNNER_TEMP/release-notes.md"\n'
         )
         compare_line = (
             "          python3 scripts/sprint_workflow.py release-notes "
-            '"${{ github.ref_name }}" --render | cmp - '
+            '"${GITHUB_REF_NAME}" --render | cmp - '
             '"$RUNNER_TEMP/release-notes.md"\n'
         )
         release_line = (
-            '          gh release create "${{ github.ref_name }}" --notes-file '
+            '          gh release create "${GITHUB_REF_NAME}" --notes-file '
             '"$RUNNER_TEMP/release-notes.md"\n'
         )
         mutations = {
@@ -7254,7 +7313,10 @@ Pedro Assumpcao and the rdocx maintainers.
         )
         steps = self.yaml_steps(job)
         self.assertEqual(len(steps), 3)
-        self.assertEqual(self.yaml_step_actions(steps[0]), ("actions/checkout@v5",))
+        self.assertEqual(
+            self.yaml_step_actions(steps[0]),
+            ("actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",),
+        )
         self.assertEqual(
             self.yaml_step_identity(steps[1], 2), "Install cargo-release 1.1.3"
         )
